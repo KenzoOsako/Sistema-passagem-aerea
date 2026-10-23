@@ -89,11 +89,11 @@ export async function checkPriceAlerts() {
 
           console.log("✉️ E-mail enviado com sucesso!");
           const emailUrl = nodemailer.getTestMessageUrl(info);
-          console.log("👀 Preview URL do E-mail (Ethereal):", emailUrl);
 
           // Avisa o frontend em tempo real (SSE) via módulo sse.js
-          broadcastAlert({
+          broadcastAlert(alert.user_id, {
             type: 'ALERT',
+            alertId: alert.id,
             origin: alert.origin,
             destination: alert.destination,
             date: alert.date,
