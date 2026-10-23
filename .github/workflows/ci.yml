@@ -30,8 +30,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      - run: npm test
       - run: npm run build
-  backend-syntax:
+  backend:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -47,3 +48,8 @@ jobs:
           for file in backend/*.js; do
             node --check "$file"
           done
+      - run: npm ci --no-audit --no-fund
+        working-directory: backend
+      - name: Synthetic auth, ownership, HTTP and scheduler tests (no provider calls)
+        run: npm test
+        working-directory: backend

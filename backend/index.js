@@ -8,6 +8,7 @@ import { dbAll, dbRun } from "./db.js";
 import { startCron } from "./cron.js";
 import { addClient } from "./sse.js";
 import { authenticateToken, generateToken } from "./auth.js";
+import { pathToFileURL } from "node:url";
 dotenv.config();
 
 const app = express();
@@ -228,14 +229,14 @@ app.post("/api/login", async (req, res) => {
 
 // --- Rotas de Alertas ---
 
-app.get("/api/stream", (req, res) => {
+app.get("/api/stream", authenticateToken, (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
   
   // Adiciona a conexão ao gerenciador do SSE
-  addClient(res);
+  addClient(res, req.user);
 });
 
 app.get("/api/alerts", authenticateToken, async (req, res) => {
@@ -275,10 +276,12 @@ app.delete("/api/alerts/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Iniciar o agendamento de verificação
-startCron();
+export { app };
 
-// Inicia o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando com sucesso na porta ${PORT}`);
-});
+// Importing routes for isolated checks must not start provider jobs or a listener.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startCron();
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando com sucesso na porta ${PORT}`);
+  });
+}

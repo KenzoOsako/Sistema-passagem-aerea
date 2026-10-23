@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Settings from "./components/Settings";
 import ChatWindow from "./components/ChatWindow";
 import Login from "./components/Login";
+import { startAlertSession } from "./alertSession";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -35,49 +36,26 @@ export default function App() {
       })
       .catch((err) => console.error("Erro ao verificar configuração do backend:", err));
 
-    // Fetch initial alerts
-    if (token) {
-      fetch(`${API_URL}/api/alerts`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Não autorizado");
-          return res.json();
-        })
-        .then((data) => setPriceAlerts(data))
-        .catch((err) => {
-          console.error("Erro ao buscar alertas (Sessão pode ter expirado):", err);
-          if (err.message === "Não autorizado") {
-            setToken("");
-            setUsername("");
-          }
-        });
-    }
-
-    // Listen for real-time SSE from Backend Cron
-    const eventSource = new EventSource(`${API_URL}/api/stream`);
-    eventSource.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'ALERT') {
-          const alertMsg = {
-            role: "model",
-            text: `🔔 ALERTA DE PREÇO ATINGIDO PELO SISTEMA (BACKEND)! 🎉\nO robô automático encontrou passagens de ${data.origin} para ${data.destination} em ${data.date.split('-').reverse().join('/')} por R$ ${data.price.toLocaleString("pt-BR")}. O seu alvo era R$ ${data.targetPrice.toLocaleString("pt-BR")}.\n\n[✉️ Clique aqui para ver a simulação do E-mail disparado](${data.emailUrl})\n\nVerifique as opções e compre no link abaixo!`,
-            flightsData: data.flightsData // Passa os dados para renderizar o Widget!
-          };
-          setMessages(prev => [...prev, alertMsg]);
-          
-          // Remove do state já que foi excluído no DB
-          setPriceAlerts(prev => prev.filter(a => !(a.origin === data.origin && a.destination === data.destination && a.targetPrice === data.targetPrice)));
-        }
-      } catch (err) {
-        console.error("Erro ao processar SSE:", err);
-      }
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    setPriceAlerts([]);
+    return startAlertSession({
+      apiUrl: API_URL,
+      token,
+      onAlerts: setPriceAlerts,
+      onUnauthorized: () => {
+        setToken("");
+        setUsername("");
+        setPriceAlerts([]);
+      },
+      onAlert: data => {
+        const alertMsg = {
+          role: "model",
+          text: `🔔 ALERTA DE PREÇO ATINGIDO PELO SISTEMA (BACKEND)! 🎉\nO robô automático encontrou passagens de ${data.origin} para ${data.destination} em ${data.date.split('-').reverse().join('/')} por R$ ${data.price.toLocaleString("pt-BR")}. O seu alvo era R$ ${data.targetPrice.toLocaleString("pt-BR")}.\n\n[✉️ Clique aqui para ver a simulação do E-mail disparado](${data.emailUrl})\n\nVerifique as opções e compre no link abaixo!`,
+          flightsData: data.flightsData,
+        };
+        setMessages(prev => [...prev, alertMsg]);
+        setPriceAlerts(prev => prev.filter(alert => alert.id !== data.alertId));
+      },
+    });
   }, [token]); // Recarrega alertas quando o token muda
 
   // Sincroniza Auth
