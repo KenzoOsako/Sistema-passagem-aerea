@@ -2,6 +2,12 @@
 
 FlyAI is an integrated system designed to facilitate flight searches, price tracking, and user interactions through a conversational interface. The system leverages the SerpApi for real-time flight data and the Google Gemini API for natural language processing, translating user intentions into structured API calls.
 
+## Project status and validation boundaries
+
+This is an experimental application, not a production-ready travel service. Flight data, model responses, alerts and email delivery depend on external providers.
+
+Before using real accounts or data, review signing-key configuration, authentication on every data path, per-user event isolation and logging. The current backend accepts a fallback signing key when JWT_SECRET is absent, and the event stream does not currently establish per-user isolation. This documentation and the CI below do not remediate those controls. Do not expose this version as a shared production service.
+
 ## System Architecture
 
 The project follows a standard client-server architecture, divided into two main components:
@@ -24,7 +30,7 @@ The project follows a standard client-server architecture, divided into two main
 ## Setup and Installation
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js 24 for the frontend CI; backend runtime/provider integration still requires separate validation.
 - Google Gemini API Key
 - SerpApi API Key (Google Flights API)
 
@@ -32,7 +38,7 @@ The project follows a standard client-server architecture, divided into two main
 1. Navigate to the backend directory:
    ```bash
    cd backend
-   npm install
+   npm ci
    ```
 2. Create a `.env` file in the root of the `backend` directory with the following variables:
    ```env
@@ -51,7 +57,7 @@ The project follows a standard client-server architecture, divided into two main
 1. Navigate to the frontend directory:
    ```bash
    cd frontend
-   npm install
+   npm ci
    ```
 2. If the backend is running on a port other than 5000, create a `.env` file in the `frontend` directory:
    ```env
@@ -64,7 +70,28 @@ The project follows a standard client-server architecture, divided into two main
 
 ## Security and Operational Guidelines
 
-- **Data Privacy:** User passwords are encrypted using bcrypt salt and hash algorithms prior to persistence.
+- **Data Privacy:** User passwords are hashed with bcrypt before persistence; hashing is not reversible encryption.
 - **Rate Limit Resilience:** The frontend implements an exponential backoff strategy for HTTP 429 (Too Many Requests) responses, while safely aborting on HTTP 400 and 401 errors to prevent client-side hanging.
 - **Database Maintenance:** The cron job automatically purges expired flight alerts and invalidates cached flight searches older than 24 hours to prevent uncontrolled storage growth.
-- **Connection Stability:** The SSE connection utilizes a 30-second silent heartbeat to prevent modern browsers and proxies from dropping idle TCP connections.
+- **Connection Stability:** The SSE implementation sends a heartbeat every 30 seconds. This does not guarantee connection availability or authorize access to user-specific events.
+
+## Repository map
+
+| Path | Responsibility |
+| --- | --- |
+| `backend/index.js` | Express routes and server startup |
+| `backend/auth.js` | Token creation and validation |
+| `backend/db.js` | SQLite persistence |
+| `backend/flightSearch.js` | Flight-provider integration |
+| `backend/cron.js` | Scheduled alert processing |
+| `backend/sse.js` | In-memory event connections |
+| `frontend/src/` | React interface and API consumers |
+| `.github/workflows/ci.yml` | Frontend lint/build and backend syntax checks |
+
+## Automated checks
+
+The frontend job runs `npm ci`, `npm run lint` and `npm run build` on Node.js 24. A separate job parses the backend JavaScript with `node --check` without starting the API, scheduler or provider scripts.
+
+These checks are not backend integration tests. They do not verify authentication, event isolation, SQLite/native-module installation, real searches, Gemini function calls or delivery of alerts. Files named `backend/test-gemini*.js` and `backend/test-serpapi*.js` are manual provider scripts; running them may need credentials and use provider quota. They are deliberately not executed by CI.
+
+Use synthetic data and separate provider accounts for further validation. Keep API keys, mail credentials and local databases out of commits and logs. A successful build is not evidence that the deployed service is secure or operational.
