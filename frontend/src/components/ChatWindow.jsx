@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { Send, Plane, HelpCircle } from "lucide-react";
+import { Send, Plane } from "lucide-react";
 import FlightWidget from "./FlightWidget";
 
 export default function ChatWindow({ messages, input, setInput, sendMessage, isLoading, onSuggestedPromptClick }) {

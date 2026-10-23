@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Plane, Calendar, ExternalLink, ArrowRight } from "lucide-react";
+import { Calendar, ExternalLink, ArrowRight } from "lucide-react";
 
 export default function FlightWidget({ data }) {
+  const [sortBy, setSortBy] = useState("price"); // 'price' | 'duration'
+
   if (!data || !data.options || data.options.length === 0) return null;
 
   const { searchParams, links, options } = data;
-  const [sortBy, setSortBy] = useState("price"); // 'price' | 'duration'
 
   // Ordenação dos voos com base no filtro selecionado
   const sortedOptions = [...options].sort((a, b) => {
